@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  flux-db:
+    image: postgres:15-alpine
+    container_name: flux-db
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_DB: flux_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    volumes:
+      - flux_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d flux_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  flux-backend:
+    build: ./backend
+    container_name: flux-backend
+    ports:
+      - "8088:8088"
+    environment:
+      - DB_HOST=flux-db
+      - DB_PORT=5432
+      - DB_NAME=flux_db
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=root
+      - JWT_SECRET=flux-data-stream-orchestration-secret-key-signature-for-security
+      - CORS_ORIGINS=http://localhost:5173
+    depends_on:
+      flux-db:
+        condition: service_healthy
+
+  flux-frontend:
+    build: ./frontend
+    container_name: flux-frontend
+    ports:
+      - "5178:80"
+    depends_on:
+      - flux-backend
+
+volumes:
+  flux_pgdata:
